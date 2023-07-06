@@ -1,7 +1,13 @@
-# Hackathon: Building an Affordable Hardware-Based Autofocus System for Microscopy
+# Hackathon: openOCT - Full-field Incoherent Interferemeter for better optical sectioning with remote control capabilities
 
-Welcome to the BluFocus Hackathon! In this hackathon, we will be addressing the crucial need for a hardware-based autofocus system that can revolutionize microscopy by ensuring slide scanning without focus loss, enabling long timelapse imaging series without focus drift, and compensating for temperature drift in microscopes.
+Welcome to the openOCT Hackathon! In this hackathon, we will be addressing the crucial need for an open-source optical coherence tomography system that can help students learning more about setting up a low-coherence interferemoter. To keep the budget low, we aim for a full-field time domain OCT using an SLD (super luminescent diode) - alternatively one could also try an LED to lower the costs even more
 
+
+
+![](IMAGES/Bildschirmaufnahme 2023-07-03 um 23.10.19.gif)
+![](IMAGES/IMG_20230701_145557.jpg)
+![](IMAGES/New video-2.gif)
+![](IMAGES/OCt.png)
 ## Motivation
 
 Autofocus is a critical feature in microscopy as it helps to keep the sample in focus, resulting in high-quality imaging. Currently, there are software-based autofocus systems that maximize contrast based on the z-position of the sample or objective. However, hardware-based autofocus systems provide alternative solutions. These systems typically utilize a laser coupled into the detection path, reflecting off the sample (e.g., coverslip), and reaching a detector (e.g., quadrant diode, camera) via a beamsplitter. As the sample moves along the optical axis, the detected beam on the detector changes as a function of *z*, which can be processed using various techniques or electric circuits.
@@ -68,6 +74,9 @@ The laser diode can be directly powered by the 3V3 supply voltage or controlled 
 ![Laser Diode Setup](./IMAGES/AF_12.jpg)
 
 
+Fully assembled
+
+![](IMAGES/IMG_20230701_145557.jpg)
 
 
 ### Optical Setup
@@ -96,6 +105,11 @@ The practical implementation of this setup may look like the following animation
 
 The combination of these optical elements allows for precise detection and tracking of focus in the autofocus system.
 
+
+### test Setup
+
+![Optical Setup Animation](./IMAGES/IMG_20230701_145557.jpg)
+
 ### Code
 
 The general code is divided into two pieces:
@@ -120,7 +134,6 @@ https://github.com/Matchboxscope/matchboxscope-simplecamera/tree/autofocus
 #define XCLK_GPIO_NUM 10
 #define SIOD_GPIO_NUM 40
 #define SIOC_GPIO_NUM 39
-
 
 #define Y9_GPIO_NUM 48
 #define Y8_GPIO_NUM 11
@@ -155,16 +168,14 @@ bool isStreaming = true;
 
 /* setting expsorue time: t1000
 setting gain: g1
-getting frame: c */
+getting frame: \n
+restarting: r0 */
 void loop()
 {
   // Check for incoming serial commands
   if (Serial.available() > 0)
   {
     String command = Serial.readString(); // Read the command until a newline character is received
-
-    Serial.println(command);                       // Print the command (debugging
-
     if (command.length() > 1 && command.charAt(0) == 't')
     {
       // exposure time
@@ -172,9 +183,9 @@ void loop()
       // Use the value as needed
       // Apply manual settings for the camera
       sensor_t *s = esp_camera_sensor_get();
-      s->set_gain_ctrl(s, 0);              // auto gain off (1 or 0)
-      s->set_exposure_ctrl(s, 0);          // auto exposure off (1 or 0)
-      s->set_aec_value(s, value);      // set exposure manually (0-1200)
+      s->set_gain_ctrl(s, 0);     // auto gain off (1 or 0)
+      s->set_exposure_ctrl(s, 0); // auto exposure off (1 or 0)
+      s->set_aec_value(s, value); // set exposure manually (0-1200)
     }
     else if (command.length() > 1 && command.charAt(0) == 'g')
     {
@@ -183,10 +194,14 @@ void loop()
 
       // Apply manual settings for the camera
       sensor_t *s = esp_camera_sensor_get();
-      s->set_gain_ctrl(s, 0);              // auto gain off (1 or 0)
-      s->set_exposure_ctrl(s, 0);          // auto exposure off (1 or 0)
-      s->set_agc_gain(s, value);           // set gain manually (0 - 30)
-
+      s->set_gain_ctrl(s, 0);     // auto gain off (1 or 0)
+      s->set_exposure_ctrl(s, 0); // auto exposure off (1 or 0)
+      s->set_agc_gain(s, value);  // set gain manually (0 - 30)
+    }
+    else if (command.length() > 1 && command.charAt(0) == 'r')
+    {
+      // restart
+      ESP.restart();
     }
     else
     {
@@ -246,6 +261,12 @@ void cameraInit()
   sensor_t *s = esp_camera_sensor_get();
   s->set_hmirror(s, 1);
   s->set_vflip(s, 1);
+
+  // enable manual camera settings
+  s->set_gain_ctrl(s, 0);     // auto gain off (1 or 0)
+  s->set_exposure_ctrl(s, 0); // auto exposure off (1 or 0)
+  s->set_aec_value(s, 100);   // set exposure manually (0-1200)
+  s->set_agc_gain(s, 0);      // set gain manually (0 - 30)
 }
 void grabImage()
 {
@@ -255,6 +276,7 @@ void grabImage()
   if (!fb || fb->format != PIXFORMAT_JPEG)
   {
     Serial.println("Failed to capture image");
+    ESP32.restart();
   }
   else
   {
@@ -273,96 +295,176 @@ void grabImage()
 #### PYTHON
 
 ```py
-#%%
-import serial
 import time
-import serial.tools.list_ports
-from PIL import Image
-import base64
-import io
+from threading import Thread
 import numpy as np
-import matplotlib.pyplot as plt
-import tifffile as tif
+import serial.tools.list_ports
+import base64
+from PIL import Image
+import io
 
-import cv2
+class CameraESP32CamSerial:
+    def __init__(self):
+        super().__init__()
+        self.__logger = initLogger(self, tryInheritParent=True)
 
-def connect_to_usb_device(manufacturer):
-    ports = serial.tools.list_ports.comports()
-    for port in ports:
-        if port.manufacturer == manufacturer or port.manufacturer == "Microsoft":
+        # many to be purged
+        self.model = "ESP32Camera"
+        self.shape = (0, 0)
+
+        self.isConnected = False
+
+        # camera parameters
+        self.framesize = 100
+        self.exposure_time = 0
+        self.analog_gain = 0
+
+        self.SensorWidth = 320
+        self.SensorHeight = 240
+
+        self.manufacturer = 'Espressif'
+
+        self.frame = np.ones((self.SensorHeight,self.SensorWidth))
+        self.isRunning = False
+
+        # string to send data to camera
+        self.newCommand = ""
+        self.exposureTime = -1
+        self.gain = -1
+
+        self.serialdevice = self.connect_to_usb_device()
+
+    def connect_to_usb_device(self):
+        ports = serial.tools.list_ports.comports()
+        for port in ports:
+            if port.manufacturer == self.manufacturer or port.manufacturer=="Microsoft":
+                try:
+                    ser = serial.Serial(port.device, baudrate=2000000, timeout=1)
+                    print(f"Connected to device: {port.description}")
+                    return ser
+                except serial.SerialException:
+                    print(f"Failed to connect to device: {port.description}")
+        print("No matching USB device found.")
+        return None
+
+    def put_frame(self, frame):
+        self.frame = frame
+        return frame
+
+    def start_live(self):
+        self.isRunning = True
+        self.mThread = Thread(target=self.startStreamingThread)
+        self.mThread.start()
+
+    def stop_live(self):
+        self.isRunning = False
+        self.mThread.join()
+        try:self.serialdevice.close()
+        except:pass
+
+    def suspend_live(self):
+        self.isRunning = False
+
+    def prepare_live(self):
+        pass
+
+    def close(self):
+        try:self.serialdevice.close()
+        except:pass
+
+    def setPropertyValue(self, property_name, property_value):
+        # Check if the property exists.
+        if property_name == "gain":
+            self.set_analog_gain(property_value)
+        elif property_name == "exposure":
+            self.set_exposure_time(property_value)
+        else:
+            self.__logger.warning(f'Property {property_name} does not exist')
+            return False
+        return property_value
+
+    def getPropertyValue(self, property_name):
+        # Check if the property exists.
+        if property_name == "gain":
+            property_value = self.gain
+        elif property_name == "exposure":
+            property_value = self.exposureTime
+        else:
+            self.__logger.warning(f'Property {property_name} does not exist')
+            return False
+        return property_value
+
+
+    def set_exposure_time(self, exposureTime):
+        self.newCommand = "t"+str(exposureTime)
+        self.exposureTime = exposureTime
+
+    def set_analog_gain(self, gain):
+        self.newCommand = "g"+str(gain)
+        self.gain = gain
+
+    def getLast(self):
+        return self.frame
+
+    def startStreamingThread(self):
+        # if we have never connected anything we should return and not always try to reconnecnt
+        if self.serialdevice is None:
+            return
+        nFrame = 0
+        nTrial = 0
+        while self.isRunning:
             try:
-                ser = serial.Serial(port.device, baudrate=2000000, timeout=1)
-                print(f"Connected to device: {port.description}")
-                ser.write_timeout = 1
-                return ser
-            except serial.SerialException:
-                print(f"Failed to connect to device: {port.description}")
-    print("No matching USB device found.")
-    return None
 
-# Specify the manufacturer to connect to
-manufacturer = 'Espressif'
+                # send new comamand to change camera settings, reset command    
+                if not self.newCommand == "":
+                    self.serialdevice.write((self.newCommand+' \n').encode())
+                    self.newCommand = ""
 
-# Connect to the USB device
-serialdevice = connect_to_usb_device(manufacturer)
+                # request new image
+                self.serialdevice.write((' \n').encode())
+
+                # don't read to early
+                time.sleep(.05)
+                # readline of camera
+                imageB64 = self.serialdevice.readline()
+
+                # decode byte stream
+                image = np.array(Image.open(io.BytesIO(base64.b64decode(imageB64.decode()))))
+                self.frame = np.mean(image,-1)
+
+                nFrame += 1
+
+            except Exception as e:
+                # try to reconnect
+                #print(e) # most of the time "incorrect padding of the bytes "
+                nFrame = 0
+                nTrial+=1
+                try:
+                    self.serialdevice.flushInput()
+                    self.serialdevice.flushOutput()
+                except:
+                    pass
+                if nTrial > 10 and type(e)==serial.serialutil.SerialException:
+                    try:
+                        # close the device - similar to hard reset
+                        self.serialdevice.setDTR(False)
+                        self.serialdevice.setRTS(True)
+                        time.sleep(.1)
+                        self.serialdevice.setDTR(False)
+                        self.serialdevice.setRTS(False)
+                        time.sleep(.5)
+                        #self.serialdevice.close()
+                    except: pass
+                    self.serialdevice = self.connect_to_usb_device()
+                    nTrial = 0
 
 
-#%%
-iError = 0
+    def getLastChunk(self):
+        return self.frame
 
-t0 = time.time()
-message = ""
-imageString = ""
+    def setROI(self, hpos, vpos, hsize, vsize):
+        return #hsize = max(hsize, 256)  # minimum ROI
 
-#cv2.startWindowThread()
-
-while True:
-  try:
-      #read image and decode
-      #serialdevice.write(b"")
-      serialdevice.write(('\n').encode())
-      # don't read to early
-      time.sleep(.05)
-      #serialdevice.flushInput()
-      #serialdevice.flushOutput()
-
-      imageB64 = serialdevice.readline()
-
-      #imageB64 = str(imageB64).split("+++++")[-1].split("----")[0]
-      image = np.array(Image.open(io.BytesIO(base64.b64decode(imageB64.decode()))))
-      print("framerate: "+(str(1/(time.time()-t0))))
-      t0 = time.time()
-      if cv2.waitKey(25) & 0xFF == ord('q'):
-          break
-      cv2.imshow("image", image)
-
-      image = np.mean(image,-1)
-      #cv2.waitKey(-1)
-      #plt.imshow(image), plt.show()
-      #serialdevice.flushInput()
-      #serialdevice.flushOutput()
-      #tif.imsave("test_stack_esp32.tif", image, append=True)
-  except Exception as e:
-      print("Error")
-      print(e)
-      serialdevice.flushInput()
-      serialdevice.flushOutput()
-      iError += 1
-      #serialdevice.reset_input_buffer()
-      # reset device here
-      if iError % 20:
-            try:
-                # close the device - similar to hard reset
-                serialdevice.setDTR(False)
-                serialdevice.setRTS(True)
-                time.sleep(.1)
-                serialdevice.setDTR(False)
-                serialdevice.setRTS(False)
-                time.sleep(.5)
-                #serialdevice.close()
-            except: pass
-            serialdevice = self.connect_to_usb_device()
-            nTrial = 0
 ```
 
 #### Image Processing
