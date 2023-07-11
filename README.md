@@ -44,6 +44,19 @@ To protect the camera (or flatband cable) from immediate damage, we use a camera
 
 The simplest prototype involves replacing the diode with the camera and substituting the read-out lens with the objective lens.
 
+### 3D printed assembly
+
+All design files are available in the INVENTOR folder
+All 3D printing files are available in the STL folder
+
+
+![](./IMAGES/Assembly_Autofocus_ke400_adjustable_2.png)
+![](./IMAGES/Assembly_Autofocus_ke400_adjustable.png)
+![](./IMAGES/Bild.png)
+
+
+
+
 ### Setting up and Adapting
 
 To disassemble the OPU, you can remove the metal plate at the back and the detection lens using Philips screwdrivers.
