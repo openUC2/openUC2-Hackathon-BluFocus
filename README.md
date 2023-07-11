@@ -46,12 +46,17 @@ The simplest prototype involves replacing the diode with the camera and substitu
 
 ### 3D printed assembly
 
-All design files are available in the INVENTOR folder
-All 3D printing files are available in the STL folder
+All design files are available in the [INVENTOR](./INVENTOR) folder
 
+All 3D printing files are available in the [STL](./STL)  folder
 
+Setup from bottom view: 3  (ball-loaded) set screws in combination with 2 pulling springs allow the beamsplitter (18x18mm^2 coverslip) to be adjusted w.r.t. the BFP of the objective lens
 ![](./IMAGES/Assembly_Autofocus_ke400_adjustable_2.png)
+
+The XIAO camera is mounted in place of the quadrant diode (A holding mechanism is missing)
 ![](./IMAGES/Assembly_Autofocus_ke400_adjustable.png)
+
+The camera comes under an angle since the cylindrical lens is not perpendicular to the pixels otherwise:
 ![](./IMAGES/Bild.png)
 
 
