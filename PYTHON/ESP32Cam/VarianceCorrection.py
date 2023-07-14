@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def variance(frame):
+def variance(frame, alpha):
     x = np.linspace(0, 1, len(frame[0]))
     y = np.linspace(0, 1, len(frame[1]))
 

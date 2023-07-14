@@ -90,16 +90,15 @@ while True:
             break
         cv2.imshow("image", frame)
         
-        x_variance, y_variance = variance(frame)
+        x_variance, y_variance = variance(frame, 10)
         x_var.append(x_variance)
         y_var.append(y_variance)
          
-        filename = 'variance_save.pkl'
+        fileName = 'variance_save.pkl'
         fileObject = open(fileName, 'wb')
-
-        if save:
-          pkl.dump([x_var, y_var], fileObject)
-          fileObject.close()
+        print('x variance:', x_variance, '   y variance:', y_variance)
+        pkl.dump([x_var, y_var], fileObject)
+        fileObject.close()
 
         frame = np.mean(frame,-1)
         #cv2.waitKey(-1)
