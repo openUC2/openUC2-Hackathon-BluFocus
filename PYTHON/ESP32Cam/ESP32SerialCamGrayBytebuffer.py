@@ -102,7 +102,7 @@ while True:
         y_var.append(y_variance)
         print("x_variance = " + str(x_variance) + " y_variance = " + str(y_variance))
 
-        print("switch = " + str(switch))
+        # print("switch = " + str(switch))
         if switch==10:
           fig, ax = plt.subplots()
           ax.pcolormesh(x, y, frame, cmap='Greys')
@@ -115,7 +115,7 @@ while True:
           fig.savefig('/Users/Sven/Downloads/astigma_fig.png', format='png')
           switch = False
           
-        print(frame)
+        # print(frame)
         filename = '/Users/Sven/Downloads/openUC2-Hackathon-BluFocus/PYTHON/ESP32Cam/variance_save.pkl'
         fileObject = open(filename, 'wb')
 
