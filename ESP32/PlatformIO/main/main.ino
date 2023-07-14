@@ -160,8 +160,8 @@ void grabImage()
   }
   else
   {
-    // Modify the first 10 pixels of the buffer to indicate framesync 
-    // PRoblem: The reference frame will move over time at random places 
+    // Modify the first 10 pixels of the buffer to indicate framesync
+    // PRoblem: The reference frame will move over time at random places
     // It'S not clear if this is an issue on the client or server side
     // Solution: To align for it we intoduce a known pattern that we can search for
     // in order to align for this on the client side
