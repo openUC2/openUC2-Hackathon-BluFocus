@@ -3,7 +3,7 @@ import numpy as np
 
 def variance(x, y, frame, alpha):
     
-
+    x,y = np.meshgrid(x, y)
     xprime = np.cos(alpha)*x - np.sin(alpha)*y
     yprime = np.sin(alpha)*x + np.cos(alpha)*y
 
