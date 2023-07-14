@@ -1,4 +1,8 @@
 #%%
+'''
+conda activate blufocus
+pip install pyserial pillow tifffile opencv-python matplotlib
+'''
 import serial
 import time
 import serial.tools.list_ports
@@ -95,7 +99,7 @@ while True:
       iError += 1
       #serialdevice.reset_input_buffer()
       # reset device here 
-      if iError % 20:
+      if iError % 20 and iError>0:
             try:
                 # close the device - similar to hard reset
                 serialdevice.setDTR(False)
