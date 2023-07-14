@@ -1,4 +1,8 @@
 #%%
+'''
+conda activate blufocus
+pip install pyserial pillow tifffile opencv-python matplotlib
+'''
 import serial
 import time
 import serial.tools.list_ports
@@ -48,10 +52,13 @@ serialdevice.readline()
 
 x_var = []
 y_var = []
-x = np.linspace(0, 1, len(frame[0]))
-y = np.linspace(0, 1, len(frame[1]))
+x = np.array(range(320))
+y = np.array(range(240))
+
+switch = 0
 while True:
   try:
+        switch = switch+1
         #read image and decode
         #serialdevice.write(b"")
         serialdevice.write(('\n').encode())
@@ -87,23 +94,35 @@ while True:
             break
         cv2.imshow("image", frame)
         
-        alpha = 10 
+        
+        alpha = 0
+        print(frame.shape)
         x_variance, y_variance, median_x, median_y = variance(x, y, frame, alpha)
         x_var.append(x_variance)
         y_var.append(y_variance)
+        print("x_variance = " + str(x_variance) + " y_variance = " + str(y_variance))
 
+        print("switch = " + str(switch))
+        if switch==10:
+          fig, ax = plt.subplots()
+          ax.pcolormesh(x, y, frame, cmap='Greys')
+          ax.plot(x, -np.sin(alpha)/np.cos(alpha) * x)
+          ax.plot(x, np.cos(alpha)/np.sin(alpha) * x)
+          ax.set_xlim(0,320)
+          ax.set_ylim(0,240)
 
-        fig, ax = plt.subplots()
-        ax.pcolormesh(x, y, frame)
-        ax.plot(x, np.cos(alpha)/np.sin(alpha) * x - median_x/np.sin(alpha))
-        ax.plot(x, -np.sin(alpha)/np.cos(alpha) * x + median_y/np.cos(alpha))
-
-        filename = 'variance_save.pkl'
+          
+          fig.savefig('/Users/Sven/Downloads/astigma_fig.png', format='png')
+          switch = False
+          
+        print(frame)
+        filename = '/Users/Sven/Downloads/openUC2-Hackathon-BluFocus/PYTHON/ESP32Cam/variance_save.pkl'
         fileObject = open(filename, 'wb')
 
-        if save:
-          pkl.dump([x_var, y_var], fileObject)
-          fileObject.close()
+        pkl.dump([x_var, y_var], fileObject)
+        fileObject.close()
+
+        alpha+=np.pi/100
 
         frame = np.mean(frame,-1)
         #cv2.waitKey(-1)
@@ -119,7 +138,7 @@ while True:
       iError += 1
       #serialdevice.reset_input_buffer()
       # reset device here 
-      if iError % 20:
+      if iError % 20 and iError>0:
             try:
                 # close the device - similar to hard reset
                 serialdevice.setDTR(False)
