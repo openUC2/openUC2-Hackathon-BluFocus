@@ -8,6 +8,8 @@ import io
 import numpy as np
 import matplotlib.pyplot as plt
 import tifffile as tif
+from VarianceCorrection import variance
+import pickle as pkl
 
 import cv2
 
@@ -43,6 +45,9 @@ imageString = ""
 
 serialdevice.write(('t10\n').encode())
 serialdevice.readline()
+
+x_var = []
+y_var = []
 
 while True:
   try:
@@ -80,7 +85,18 @@ while True:
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break
         cv2.imshow("image", frame)
-    
+        
+        x_variance, y_variance = variance(frame)
+        x_var.append(x_variance)
+        y_var.append(y_variance)
+         
+        filename = 'variance_save.pkl'
+        fileObject = open(fileName, 'wb')
+
+        if save:
+          pkl.dump([x_var, y_var], fileObject)
+          fileObject.close()
+
         frame = np.mean(frame,-1)
         #cv2.waitKey(-1)
         #plt.imshow(image), plt.show()
