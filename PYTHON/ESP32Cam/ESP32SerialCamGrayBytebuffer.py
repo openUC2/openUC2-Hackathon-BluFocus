@@ -48,7 +48,8 @@ serialdevice.readline()
 
 x_var = []
 y_var = []
-
+x = np.linspace(0, 1, len(frame[0]))
+y = np.linspace(0, 1, len(frame[1]))
 while True:
   try:
         #read image and decode
@@ -86,12 +87,19 @@ while True:
             break
         cv2.imshow("image", frame)
         
-        x_variance, y_variance = variance(frame)
+        alpha = 10 
+        x_variance, y_variance, median_x, median_y = variance(x, y, frame, alpha)
         x_var.append(x_variance)
         y_var.append(y_variance)
-         
+
+
+        fig, ax = plt.subplots()
+        ax.pcolormesh(x, y, frame)
+        ax.plot(x, np.cos(alpha)/np.sin(alpha) * x - median_x/np.sin(alpha))
+        ax.plot(x, -np.sin(alpha)/np.cos(alpha) * x + median_y/np.cos(alpha))
+
         filename = 'variance_save.pkl'
-        fileObject = open(fileName, 'wb')
+        fileObject = open(filename, 'wb')
 
         if save:
           pkl.dump([x_var, y_var], fileObject)

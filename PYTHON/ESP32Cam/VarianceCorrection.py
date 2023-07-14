@@ -1,9 +1,8 @@
 import numpy as np
 
 
-def variance(frame):
-    x = np.linspace(0, 1, len(frame[0]))
-    y = np.linspace(0, 1, len(frame[1]))
+def variance(x, y, frame, alpha):
+    
 
     xprime = np.cos(alpha)*x - np.sin(alpha)*y
     yprime = np.sin(alpha)*x + np.cos(alpha)*y
@@ -16,5 +15,5 @@ def variance(frame):
     varriance_x = np.sum((xprime**2)*frame)/intensitySum - median_x**2
     varriance_y = np.sum((yprime**2)*frame)/intensitySum - median_y**2
 
-    return varriance_x, varriance_y
+    return varriance_x, varriance_y, median_x, median_y
 
