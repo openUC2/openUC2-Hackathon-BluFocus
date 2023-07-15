@@ -12,7 +12,7 @@ import io
 import numpy as np
 import matplotlib.pyplot as plt
 import tifffile as tif
-from VarianceCorrection import variance
+from VarianceCorrection import variance, get_initial_focus, correct_focus
 import pickle as pkl
 
 import uc2rest # motorcontrol
@@ -55,29 +55,30 @@ imageString = ""
 
 #cv2.startWindowThread()
 
-serialdevice.write(('t10\n').encode())
+serialdevice.write(('t30\n').encode())
 serialdevice.readline()
 
 
 #motor init
-intervall = 4000
-ESP32.motor.move(steps=intervall/2, speed=10000, is_blocking=True, is_absolute=False, is_enabled=True)
+intervall = 8000
+ESP32.motor.move_z(steps=intervall/2, speed=10000, is_blocking=True, is_absolute=False, is_enabled=True)
 while ESP32.motor.isRunning:
     sleep(.5)
 
 start = ESP32.motor.get_position(axis=1)[3]
 
-ESP32.motor.move(steps=-intervall, speed=100, is_blocking=True, is_absolute=False, is_enabled=True)
 
 x_var = []
 y_var = []
 x = np.array(range(320))
 y = np.array(range(240))
 
+alpha = 0
 switch = 0
-while ESP32.motor.isRunning:
+steps = 100   # data points fto focus
+
+for i in range(steps):
   try:
-        switch = switch+1
         #read image and decode
         #serialdevice.write(b"")
         serialdevice.write(('\n').encode())
@@ -85,6 +86,8 @@ while ESP32.motor.isRunning:
         time.sleep(.05)
         #serialdevice.flushInput()
         #serialdevice.flushOutput()
+
+        switch = switch+1
         
         #imageB64 = serialdevice.readline()
         
@@ -133,6 +136,9 @@ while ESP32.motor.isRunning:
           fig.savefig('/Users/Sven/Downloads/astigma_fig.png', format='png')
           switch = False
 
+                
+        ESP32.motor.move_z(steps=-intervall/steps, speed=10000, is_blocking=True, is_absolute=False, is_enabled=True)
+
         frame = np.mean(frame,-1)
         #cv2.waitKey(-1)
         #plt.imshow(image), plt.show()
@@ -164,9 +170,19 @@ while ESP32.motor.isRunning:
 
 end = ESP32.motor.get_position(axis=1)[3]
 
-focus_steps, focus_var_x, focus_var_y = get_initial_focus([x_var, y_var], start, end)
+# save variances as pickle
+filename = '/Users/Sven/Downloads/openUC2-Hackathon-BluFocus/PYTHON/ESP32Cam/variance_save.pkl'
+fileObject = open(filename, 'wb')
 
-ESP32.motor.move(steps=-focus_steps, speed=10000, is_blocking=True, is_absolute=False, is_enabled=True)
+pkl.dump([x_var, y_var], fileObject)
+fileObject.close()
+
+focus_steps, focus_var_x, focus_var_y = get_initial_focus([x_var, y_var], start, end)
+x_var = [focus_var_x for i in range(8)]
+y_var = [focus_var_y for i in range(8)]
+ESP32.motor.move_z(steps=-focus_steps, speed=10000, is_blocking=True, is_absolute=False, is_enabled=True)
+
+switch = 0
 
 while True:
   try:

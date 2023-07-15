@@ -15,8 +15,6 @@ import tifffile as tif
 from VarianceCorrection import variance
 import pickle as pkl
 
-import uc2rest # motorcontrol
-
 import cv2
 
 def connect_to_usb_device(manufacturer="Espressif"):
@@ -115,11 +113,11 @@ while True:
           ax.set_xlim(0,320)
           ax.set_ylim(0,240)
 
-          with open("/Users/Sven/Downloads/output.txt", "w") as txt_file:
-            for line in frame:
-              for element in line:
-                txt_file.write(" ".join(str(element) + ","))
-              txt_file.write("".join("\n"))
+          # with open("/Users/Sven/Downloads/output.txt", "w") as txt_file:
+          #   for line in frame:
+          #     for element in line:
+          #       txt_file.write(" ".join(str(element) + ","))
+          #     txt_file.write("".join("\n"))
           
           fig.savefig('/Users/Sven/Downloads/astigma_fig.png', format='png')
           switch = False
@@ -145,7 +143,7 @@ while True:
       serialdevice.flushInput()
       serialdevice.flushOutput()
       iError += 1
-      #serialdevice.reset_input_buffer()
+      # serialdevice.reset_input_buffer()
       # reset device here 
       if iError % 20 and iError>0:
             try:

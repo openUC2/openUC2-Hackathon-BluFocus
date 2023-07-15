@@ -5,7 +5,6 @@ import uc2rest
 
 def variance(x, y, frame, alpha):
     frame = frame[50:150,100:200]
-    frame = np.max(0, frame-1)
     frame = np.maximum(0.0, np.array(frame) - 30.5) # np.min(frame)
     print(np.max(frame))
     x = x[100:200]
@@ -36,9 +35,9 @@ def variance(x, y, frame, alpha):
     return varriance_x, varriance_y, mean_x, mean_y
 
 def get_initial_focus(variances, start, end):
-    min_index = np.argmin(variances[0]+variances[1])
+    min_index = np.argmin(np.array(variances[0])+np.array(variances[1]))
     focus_z = int((end - start) * (min_index+1)/len(variances[0]))
-
+    print(f'{min_index=}', '  ', np.array(variances).shape)
     return focus_z, variances[0][min_index], variances[1][min_index]
 
 def correct_focus(focus_var_x, focus_var_y, x_var, y_var, ESP32, threshhold=1, weight=1):
