@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 
 def variance(x, y, frame, alpha):
     frame = frame[50:150,100:200]
-    frame = np.max(0, frame-1)
+    frame = np.maximum(0.0, np.array(frame) - 30.5) # np.min(frame)
+    print(np.max(frame))
     x = x[100:200]
     y = y[50:150]
     x,y = np.meshgrid(x,y)
@@ -21,15 +22,16 @@ def variance(x, y, frame, alpha):
     varriance_x = np.sum((xprime**2)*frame)/intensitySum - mean_x**2
     varriance_y = np.sum((yprime**2)*frame)/intensitySum - mean_y**2
 
-    # fig, ax = plt.subplots()
-    # ax.pcolormesh(x, y, frame, cmap='Greys')
+    fig, ax = plt.subplots()
+    ax.pcolormesh(x, y, frame, cmap='Greys')
     # ax.plot(x, -np.sin(alpha)/np.cos(alpha) * x)
     # ax.plot(x, np.cos(alpha)/np.sin(alpha) * x)
-    # ax.set_xlim(0,320)
-    # ax.set_ylim(0,240)
+    ax.set_xlim(100,200)
+    ax.set_ylim(50,150)
 
     
-    #fig.savefig('/Users/Sven/Downloads/astigma_fig_CROP.png', format='png')
+    fig.savefig('/Users/Sven/Downloads/astigma_fig_CROP.png', format='png')
+    plt.close()
     return varriance_x, varriance_y, mean_x, mean_y
 
 def get_initial_focus(variances, start, end):
