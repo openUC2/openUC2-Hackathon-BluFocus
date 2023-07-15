@@ -60,7 +60,7 @@ serialdevice.readline()
 
 
 #motor init
-intervall = 8000
+intervall = 5000
 ESP32.motor.move_z(steps=intervall/2, speed=10000, is_blocking=True, is_absolute=False, is_enabled=True)
 while ESP32.motor.isRunning:
     sleep(.5)

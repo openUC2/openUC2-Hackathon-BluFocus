@@ -35,7 +35,7 @@ def variance(x, y, frame, alpha):
     return varriance_x, varriance_y, mean_x, mean_y
 
 def get_initial_focus(variances, start, end):
-    min_index = np.argmin(np.array(variances[0])+np.array(variances[1]))
+    min_index = np.argmin(np.abs(np.array(variances[0])-np.array(variances[1])))
     focus_z = int((end - start) * (min_index+1)/len(variances[0]))
     print(f'{min_index=}', '  ', np.array(variances).shape)
     return focus_z, variances[0][min_index], variances[1][min_index]
