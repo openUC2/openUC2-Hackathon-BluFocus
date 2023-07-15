@@ -33,6 +33,12 @@ def connect_to_usb_device(manufacturer="Espressif"):
     print("No matching USB device found.")
     return None
 
+# connect to motor
+mPort ="/dev/cu.usbserial-A50285BI"
+ESP32 = uc2rest.UC2Client(serialport=mPort, DEBUG=True)
+# setting debug output of the serial to true - all message will be printed
+ESP32.serial.DEBUG=True
+
 # Specify the manufacturer to connect to
 manufacturer = 'Espressif'
 
@@ -52,13 +58,24 @@ imageString = ""
 serialdevice.write(('t10\n').encode())
 serialdevice.readline()
 
+
+#motor init
+intervall = 4000
+ESP32.motor.move(steps=intervall/2, speed=10000, is_blocking=True, is_absolute=False, is_enabled=True)
+while ESP32.motor.isRunning:
+    sleep(.5)
+
+start = ESP32.motor.get_position(axis=1)[3]
+
+ESP32.motor.move(steps=-intervall, speed=100, is_blocking=True, is_absolute=False, is_enabled=True)
+
 x_var = []
 y_var = []
 x = np.array(range(320))
 y = np.array(range(240))
 
 switch = 0
-while True:
+while ESP32.motor.isRunning:
   try:
         switch = switch+1
         #read image and decode
@@ -95,43 +112,26 @@ while True:
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break
         
-        image=cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
-        se=cv2.getStructuringElement(cv2.MORPH_RECT , (8,8))
-        bg=cv2.morphologyEx(image, cv2.MORPH_DILATE, se)
-        out_gray=cv2.divide(image, bg, scale=255)
-        frame=cv2.threshold(out_gray, 0, 255, cv2.THRESH_OTSU )[1] 
         cv2.imshow("image", frame)
 
         
-        alpha = 0
-        print(frame.shape)
         x_variance, y_variance, median_x, median_y = variance(x, y, frame, alpha)
         x_var.append(x_variance)
         y_var.append(y_variance)
         print("x_variance = " + str(x_variance) + " y_variance = " + str(y_variance))
 
         
-        print("switch = " + str(switch))
         if switch==10:
           fig, ax = plt.subplots()
           ax.pcolormesh(x, y, frame, cmap='Greys')
-          ax.plot(x, -np.sin(alpha)/np.cos(alpha) * x)
-          ax.plot(x, np.cos(alpha)/np.sin(alpha) * x)
+          #ax.plot(x, -np.sin(alpha)/np.cos(alpha) * x)
+          #ax.plot(x, np.cos(alpha)/np.sin(alpha) * x)
           ax.set_xlim(0,320)
           ax.set_ylim(0,240)
 
           
           fig.savefig('/Users/Sven/Downloads/astigma_fig.png', format='png')
           switch = False
-          
-        print(frame)
-        filename = '/Users/Sven/Downloads/openUC2-Hackathon-BluFocus/PYTHON/ESP32Cam/variance_save.pkl'
-        fileObject = open(filename, 'wb')
-
-        pkl.dump([x_var, y_var], fileObject)
-        fileObject.close()
-
-        alpha+=np.pi/100
 
         frame = np.mean(frame,-1)
         #cv2.waitKey(-1)
@@ -160,8 +160,103 @@ while True:
             except Exception as e: pass
             serialdevice = connect_to_usb_device()
             nTrial = 0
-      
-    
+
+
+end = ESP32.motor.get_position(axis=1)[3]
+
+focus_steps, focus_var_x, focus_var_y = get_initial_focus([x_var, y_var], start, end)
+
+ESP32.motor.move(steps=-focus_steps, speed=10000, is_blocking=True, is_absolute=False, is_enabled=True)
+
+while True:
+  try:
+        #read image and decode
+        #serialdevice.write(b"")
+        serialdevice.write(('\n').encode())
+        # don't read to early
+        time.sleep(.05)
+        #serialdevice.flushInput()
+        #serialdevice.flushOutput()
+        
+        #imageB64 = serialdevice.readline()
+        
+        # Read a frame from the serial port
+        frame_size = 320 * 240
+        frame_bytes = serialdevice.read(frame_size)
+        
+        # Convert the bytes to a numpy array
+        frame_flat = np.frombuffer(frame_bytes, dtype=np.uint8)
+        frame = frame_flat.reshape((240, 320))
+        
+        # find 0,1,0,1... pattern to sync
+        pattern = (0,1,0,1,0,1,0,1,0,1)
+        window_size = len(pattern)
+        for i in range(len(frame_flat) - window_size + 1):
+            # Check if the elements in the current window match the pattern
+            if np.array_equal(frame_flat[i:i+window_size], pattern):
+                print(i)
+                break
+            
+
+
+        print("framerate: "+(str(1/(time.time()-t0))))
+        t0 = time.time()
+        if cv2.waitKey(25) & 0xFF == ord('q'):
+            break
+
+        cv2.imshow("image", frame)
+
+        
+        x_variance, y_variance, median_x, median_y = variance(x, y, frame, alpha)
+        x_var.append(x_variance)
+        y_var.append(y_variance)
+        print("x_variance = " + str(x_variance) + " y_variance = " + str(y_variance))
+
+        correct_focus(focus_var_x, focus_var_y, x_var, y_var, ESP32, threshhold=1, weight=1)
+
+        if switch==10:
+          fig, ax = plt.subplots()
+          ax.pcolormesh(x, y, frame, cmap='Greys')
+        #   ax.plot(x, -np.sin(alpha)/np.cos(alpha) * x)
+        #   ax.plot(x, np.cos(alpha)/np.sin(alpha) * x)
+          ax.set_xlim(0,320)
+          ax.set_ylim(0,240)
+
+          
+          fig.savefig('/Users/Sven/Downloads/astigma_fig_1.png', format='png')
+          switch = False
+
+        frame = np.mean(frame,-1)
+        #cv2.waitKey(-1)
+        #plt.imshow(image), plt.show()
+        #serialdevice.flushInput()
+        #serialdevice.flushOutput()
+        #tif.imsave("test_stack_esp32.tif", image, append=True)
+  except Exception as e:
+      print("Error")
+      print(e)
+      serialdevice.flushInput()
+      serialdevice.flushOutput()
+      iError += 1
+      #serialdevice.reset_input_buffer()
+      # reset device here 
+      if iError % 20 and iError>0:
+            try:
+                # close the device - similar to hard reset
+                serialdevice.setDTR(False)
+                serialdevice.setRTS(True)
+                time.sleep(.1)
+                serialdevice.setDTR(False)
+                serialdevice.setRTS(False)
+                time.sleep(.5)
+                #serialdevice.close()
+            except Exception as e: pass
+            serialdevice = connect_to_usb_device()
+            nTrial = 0
+
+
+
+
 print(iError)
 
 #%%
