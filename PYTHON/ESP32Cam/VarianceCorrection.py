@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 
 def variance(x, y, frame, alpha):
     frame = frame[50:150,100:200]
-    frame = frame - np.min(frame)
+    frame = np.maximum(0.0, np.array(frame) - 30.5) # np.min(frame)
+    print(np.max(frame))
     x = x[100:200]
     y = y[50:150]
     x,y = np.meshgrid(x,y)
@@ -23,8 +24,8 @@ def variance(x, y, frame, alpha):
 
     fig, ax = plt.subplots()
     ax.pcolormesh(x, y, frame, cmap='Greys')
-    ax.plot(x, -np.sin(alpha)/np.cos(alpha) * x)
-    ax.plot(x, np.cos(alpha)/np.sin(alpha) * x)
+    # ax.plot(x, -np.sin(alpha)/np.cos(alpha) * x)
+    # ax.plot(x, np.cos(alpha)/np.sin(alpha) * x)
     ax.set_xlim(100,200)
     ax.set_ylim(50,150)
 

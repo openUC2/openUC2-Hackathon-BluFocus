@@ -47,7 +47,7 @@ imageString = ""
 
 #cv2.startWindowThread()
 
-serialdevice.write(('t10\n').encode())
+serialdevice.write(('t30\n').encode())
 serialdevice.readline()
 
 x_var = []
@@ -93,30 +93,31 @@ while True:
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break
         
-        image=cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
-        se=cv2.getStructuringElement(cv2.MORPH_RECT , (8,8))
-        bg=cv2.morphologyEx(image, cv2.MORPH_DILATE, se)
-        out_gray=cv2.divide(image, bg, scale=255)
-        frame=cv2.threshold(out_gray, 0, 255, cv2.THRESH_OTSU )[1] 
         cv2.imshow("image", frame)
         
-        
         alpha = 0
-        print(frame.shape)
+        # print(frame.shape)
         x_variance, y_variance, median_x, median_y = variance(x, y, frame, alpha)
         x_var.append(x_variance)
         y_var.append(y_variance)
         print("x_variance = " + str(x_variance) + " y_variance = " + str(y_variance))
 
+        # if x_variance
+
         # print("switch = " + str(switch))
         if switch==10:
           fig, ax = plt.subplots()
           ax.pcolormesh(x, y, frame, cmap='Greys')
-          ax.plot(x, -np.sin(alpha)/np.cos(alpha) * x)
-          ax.plot(x, np.cos(alpha)/np.sin(alpha) * x)
+          # ax.plot(x, -np.sin(alpha)/np.cos(alpha) * x)
+          # ax.plot(x, np.cos(alpha)/np.sin(alpha) * x)
           ax.set_xlim(0,320)
           ax.set_ylim(0,240)
 
+          with open("/Users/Sven/Downloads/output.txt", "w") as txt_file:
+            for line in frame:
+              for element in line:
+                txt_file.write(" ".join(str(element) + ","))
+              txt_file.write("".join("\n"))
           
           fig.savefig('/Users/Sven/Downloads/astigma_fig.png', format='png')
           switch = False
@@ -128,7 +129,7 @@ while True:
         pkl.dump([x_var, y_var], fileObject)
         fileObject.close()
 
-        alpha+=np.pi/100
+        # alpha+=np.pi/100
 
         frame = np.mean(frame,-1)
         #cv2.waitKey(-1)
