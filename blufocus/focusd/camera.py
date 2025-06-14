@@ -40,6 +40,14 @@ class CameraInterface:
         
     def _detect_camera_method(self) -> str:
         """Detect which camera capture method to use"""
+        # Check for picamera2 (preferred for Raspberry Pi)
+        try:
+            from picamera2 import Picamera2
+            self.logger.info("Using picamera2 for capture")
+            return "picamera2"
+        except ImportError:
+            pass
+            
         # Check for libcamera-still
         try:
             result = subprocess.run(['libcamera-still', '--version'], 
@@ -96,6 +104,22 @@ class CameraInterface:
         if self._capture_thread:
             self._capture_thread.join(timeout=2.0)
             
+        # Clean up camera resources
+        if hasattr(self, '_picamera2'):
+            try:
+                self._picamera2.stop()
+                self._picamera2.close()
+                delattr(self, '_picamera2')
+            except Exception as e:
+                self.logger.warning(f"Error stopping picamera2: {e}")
+                
+        if hasattr(self, '_cv_camera'):
+            try:
+                self._cv_camera.release()
+                delattr(self, '_cv_camera')
+            except Exception as e:
+                self.logger.warning(f"Error releasing OpenCV camera: {e}")
+            
         self.logger.info("Camera stopped")
     
     def _capture_loop(self):
@@ -128,7 +152,9 @@ class CameraInterface:
     
     def _capture_frame(self) -> Optional[np.ndarray]:
         """Capture a single frame using the detected method"""
-        if self.camera_method == "libcamera":
+        if self.camera_method == "picamera2":
+            return self._capture_picamera2()
+        elif self.camera_method == "libcamera":
             return self._capture_libcamera()
         elif self.camera_method == "raspistill":
             return self._capture_raspistill()
@@ -137,6 +163,43 @@ class CameraInterface:
         else:
             return self._capture_dummy()
     
+    def _capture_picamera2(self) -> Optional[np.ndarray]:
+        """Capture frame using picamera2"""
+        try:
+            from picamera2 import Picamera2
+            
+            # Initialize camera if not done yet
+            if not hasattr(self, '_picamera2'):
+                self._picamera2 = Picamera2()
+                config = self._picamera2.create_still_configuration(
+                    main={"size": (self.width, self.height), "format": "RGB888"}
+                )
+                self._picamera2.configure(config)
+                self._picamera2.start()
+                
+                # Apply camera settings
+                controls = {}
+                if self.exposure > 0:
+                    controls["ExposureTime"] = self.exposure
+                if self.gain > 0:
+                    controls["AnalogueGain"] = self.gain
+                if controls:
+                    self._picamera2.set_controls(controls)
+            
+            # Capture frame
+            frame = self._picamera2.capture_array()
+            
+            # Convert RGB to BGR if needed (for consistency with OpenCV)
+            if frame.ndim == 3 and frame.shape[2] == 3:
+                frame = frame[:, :, ::-1]  # RGB to BGR
+                
+            return frame
+            
+        except Exception as e:
+            self.logger.error(f"picamera2 capture error: {e}")
+            
+        return None
+
     def _capture_libcamera(self) -> Optional[np.ndarray]:
         """Capture frame using libcamera-still"""
         try:
@@ -265,6 +328,19 @@ class CameraInterface:
             self.exposure = max(0, exposure)
         if gain is not None:
             self.gain = max(0, min(30, gain))
+            
+        # Apply settings to active camera
+        if hasattr(self, '_picamera2') and self.camera_method == "picamera2":
+            try:
+                controls = {}
+                if self.exposure > 0:
+                    controls["ExposureTime"] = self.exposure
+                if self.gain > 0:
+                    controls["AnalogueGain"] = self.gain
+                if controls:
+                    self._picamera2.set_controls(controls)
+            except Exception as e:
+                self.logger.warning(f"Failed to update picamera2 settings: {e}")
             
         self.logger.info(f"Camera settings updated: exposure={self.exposure}, gain={self.gain}")
     
