@@ -53,17 +53,17 @@ while True:
         time.sleep(.05)
         #serialdevice.flushInput()
         #serialdevice.flushOutput()
-        
+
         #imageB64 = serialdevice.readline()
-        
+
         # Read a frame from the serial port
         frame_size = 320 * 240
         frame_bytes = serialdevice.read(frame_size)
-        
+
         # Convert the bytes to a numpy array
         frame_flat = np.frombuffer(frame_bytes, dtype=np.uint8)
         frame = frame_flat.reshape((240, 320))
-        
+
         # find 0,1,0,1... pattern to sync
         pattern = (0,1,0,1,0,1,0,1,0,1)
         window_size = len(pattern)
@@ -72,7 +72,7 @@ while True:
             if np.array_equal(frame_flat[i:i+window_size], pattern):
                 print(i)
                 break
-            
+
 
 
         print("framerate: "+(str(1/(time.time()-t0))))
@@ -80,7 +80,9 @@ while True:
         if cv2.waitKey(25) & 0xFF == ord('q'):
             break
         cv2.imshow("image", frame)
-    
+        # image processing
+
+
         frame = np.mean(frame,-1)
         #cv2.waitKey(-1)
         #plt.imshow(image), plt.show()
@@ -94,7 +96,7 @@ while True:
       serialdevice.flushOutput()
       iError += 1
       #serialdevice.reset_input_buffer()
-      # reset device here 
+      # reset device here
       if iError % 20:
             try:
                 # close the device - similar to hard reset
@@ -108,13 +110,13 @@ while True:
             except Exception as e: pass
             serialdevice = connect_to_usb_device()
             nTrial = 0
-      
-    
+
+
 print(iError)
 
 #%%
-        
-        
+
+
 ''' ESP CODE
 #include "esp_camera.h"
 #include <base64.h>
@@ -278,8 +280,8 @@ void grabImage()
   }
   else
   {
-    // Modify the first 10 pixels of the buffer to indicate framesync 
-    // PRoblem: The reference frame will move over time at random places 
+    // Modify the first 10 pixels of the buffer to indicate framesync
+    // PRoblem: The reference frame will move over time at random places
     // It'S not clear if this is an issue on the client or server side
     // Solution: To align for it we intoduce a known pattern that we can search for
     // in order to align for this on the client side
