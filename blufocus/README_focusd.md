@@ -2,7 +2,7 @@
 
 A lightweight autofocus system that acquires camera frames, evaluates focus quality, streams video for debugging, exposes runtime configuration via REST API, and publishes per-frame focus metrics over CAN bus.
 
-## 🎯 Features
+## Features
 
 - **Real-time focus computation** using double/single Gaussian fitting algorithm
 - **Camera capture** at ≤15 fps using libcamera (with fallbacks)
@@ -13,7 +13,7 @@ A lightweight autofocus system that acquires camera frames, evaluates focus qual
 - **SystemD integration** for auto-start and monitoring
 - **Performance optimized** for Raspberry Pi Zero W2
 
-## 📋 Requirements
+## Requirements
 
 ### Hardware
 - Raspberry Pi Zero W2 (1 GHz quad-core, 512 MB RAM)
@@ -26,17 +26,14 @@ A lightweight autofocus system that acquires camera frames, evaluates focus qual
 - Python ≥3.11
 - See `requirements.txt` for Python dependencies
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Flash and Boot
 
 Flash the provided `focusd-YYYYMMDD.img` to an SD card:
 
 ```bash
-# Flash image (replace with actual image filename)
-sudo dd if=focusd-20241214.img of=/dev/sdX bs=4M status=progress
-
-# Or use Raspberry Pi Imager with the .img file
+#  use Raspberry Pi Imager with the .img file
 ```
 
 ### 2. Initial Setup
@@ -47,6 +44,10 @@ sudo dd if=focusd-20241214.img of=/dev/sdX bs=4M status=progress
 4. Access live video stream: `http://<pi-ip>:8080/stream`
 
 ### 3. API Usage Examples
+
+#### Swagger 
+
+Visit http://<pi-ip>:8080/docs
 
 #### Check System Status
 ```bash
@@ -101,7 +102,7 @@ cansend can0 124#
 ```bash
 # Clone repository
 git clone https://github.com/openUC2/openUC2-Hackathon-BluFocus.git
-cd openUC2-Hackathon-BluFocus
+cd openUC2-Hackathon-BluFocus/blufocus
 
 # Install system dependencies
 sudo apt update
@@ -151,7 +152,7 @@ black .
 python3 -m focusd.main --config config.yaml --log-level DEBUG
 ```
 
-## 📖 API Reference
+## API Reference
 
 ### Endpoints
 
@@ -202,7 +203,7 @@ system:
   pid_file: "/var/run/focusd.pid"
 ```
 
-## 🧪 Testing
+## Testing
 
 ### Unit Tests
 
@@ -243,7 +244,7 @@ curl http://localhost:8080/focus
 pkill -f focusd.main
 ```
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 

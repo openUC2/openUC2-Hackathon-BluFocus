@@ -1,7 +1,7 @@
 """
 Main focusd service
 
-Integrates all components according to specification section 4.1:
+Integrates all components according to specification:
 - Captures frames from CSI camera at ≤ 15 fps using libcamera
 - Applies user-defined exposure & gain on each capture  
 - Calls FocusMetric.compute(frame) and obtains single float per frame
