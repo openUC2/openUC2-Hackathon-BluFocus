@@ -6,12 +6,13 @@ A lightweight autofocus system that acquires camera frames, evaluates focus qual
 
 - **Real-time focus computation** using double/single Gaussian fitting algorithm
 - **Camera capture** at ≤15 fps using libcamera (with fallbacks)
-- **MJPEG video streaming** for live debugging on port 8080
-- **REST API** for configuration and control
+- **MJPEG video streaming** over HTTPS for live debugging (avoids mixed content issues)
+- **REST API** for configuration and control (served over HTTPS by default)
 - **CAN bus interface** for real-time focus metrics (push/pull modes)
 - **Configuration persistence** with YAML files
 - **SystemD integration** for auto-start and monitoring
 - **Performance optimized** for Raspberry Pi Zero W2
+- **Automatic SSL certificate generation** for secure communication
 
 ## Requirements
 
@@ -41,41 +42,44 @@ Flash the provided `focusd-YYYYMMDD.img` to an SD card:
 1. Insert SD card and boot Pi
 2. Connect to predefined Wi-Fi network
 3. Find Pi IP address (check router or use `nmap`)
-4. Access live video stream: `http://<pi-ip>:8080/stream`
+4. Access live video stream: `https://<pi-ip>:8080/stream` (HTTPS enabled by default)
+   - **Note**: You may need to accept the self-signed certificate warning in your browser
 
 ### 3. API Usage Examples
 
 #### Swagger 
 
-Visit http://<pi-ip>:8080/docs
+Visit https://<pi-ip>:8080/docs (served over HTTPS by default)
 
 #### Check System Status
 ```bash
-curl http://<pi-ip>:8080/status
+curl -k https://<pi-ip>:8080/status
 ```
 
 #### Get Current Configuration
 ```bash
-curl http://<pi-ip>:8080/config
+curl -k https://<pi-ip>:8080/config
 ```
 
 #### Update Camera Settings
 ```bash
-curl -X POST http://<pi-ip>:8080/config \
+curl -k -X POST https://<pi-ip>:8080/config \
   -H "Content-Type: application/json" \
   -d '{"camera": {"exposure": 1500, "gain": 10}}'
 ```
 
 #### Capture Single Frame
 ```bash
-curl http://<pi-ip>:8080/capture > capture.jpg
+curl -k https://<pi-ip>:8080/capture > capture.jpg
 ```
 
 #### Get Latest Focus Value
 ```bash
-curl http://<pi-ip>:8080/focus
+curl -k https://<pi-ip>:8080/focus
 # Returns: {"t": 1686844861.012, "focus": 1.234}
 ```
+
+**Note**: The `-k` flag tells curl to ignore SSL certificate errors (needed for self-signed certificates)
 
 ### 4. CAN Bus Monitoring
 
@@ -196,11 +200,32 @@ api:
   port: 8080
   enable_docs: true
   cors_enabled: true
+  enable_ssl: true  # HTTPS enabled by default
+  ssl_cert_path: "/etc/focusd/ssl/cert.pem"
+  ssl_key_path: "/etc/focusd/ssl/key.pem"
 
 system:
   log_level: "INFO"
   config_file: "/etc/focusd/config.yaml"
   pid_file: "/var/run/focusd.pid"
+```
+
+### HTTPS Configuration
+
+HTTPS is enabled by default to prevent mixed content issues when accessing the video stream from HTTPS web pages. The system automatically generates self-signed certificates if they don't exist.
+
+#### Disabling HTTPS (not recommended)
+```yaml
+api:
+  enable_ssl: false
+```
+
+#### Custom SSL Certificates
+Replace the auto-generated certificates with your own:
+```bash
+sudo cp your-cert.pem /etc/focusd/ssl/cert.pem
+sudo cp your-key.pem /etc/focusd/ssl/key.pem
+sudo systemctl restart focusd
 ```
 
 ## Testing
@@ -239,8 +264,8 @@ camera.stop()
 # Test API endpoints
 python3 -m focusd.main &
 sleep 5
-curl http://localhost:8080/status
-curl http://localhost:8080/focus
+curl -k https://localhost:8080/status
+curl -k https://localhost:8080/focus
 pkill -f focusd.main
 ```
 

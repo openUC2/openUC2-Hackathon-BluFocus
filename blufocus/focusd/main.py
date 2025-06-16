@@ -6,7 +6,7 @@ Integrates all components according to specification:
 - Applies user-defined exposure & gain on each capture  
 - Calls FocusMetric.compute(frame) and obtains single float per frame
 - Publishes metric to CAN (event-push every frame and on-demand pull)
-- Exposes MJPEG stream of raw frames on http://<pi>:8080/stream.mjpg
+- Exposes MJPEG stream of raw frames over HTTPS on port 8080 to avoid mixed content issues
 - Exposes REST API via FastAPI
 - Persists settings in /etc/focusd/config.yaml; loads on startup
 """

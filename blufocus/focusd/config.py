@@ -49,7 +49,7 @@ class APIConfig:
     port: int = 8080
     enable_docs: bool = True
     cors_enabled: bool = True
-    enable_ssl: bool = False
+    enable_ssl: bool = True
     ssl_cert_path: str = "/etc/focusd/ssl/cert.pem"
     ssl_key_path: str = "/etc/focusd/ssl/key.pem"
 

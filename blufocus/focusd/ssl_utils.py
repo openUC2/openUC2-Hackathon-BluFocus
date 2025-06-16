@@ -7,12 +7,34 @@ Provides functionality to generate self-signed certificates for HTTPS support.
 import os
 import logging
 import ipaddress
+import socket
 from pathlib import Path
 from cryptography import x509
 from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from datetime import datetime, timedelta
+
+
+def get_local_ip_addresses():
+    """Get local IP addresses for certificate generation"""
+    ips = []
+    try:
+        # Get local IP by connecting to a remote address
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            local_ip = s.getsockname()[0]
+            ips.append(local_ip)
+    except Exception:
+        pass
+    
+    # Add common default addresses
+    common_ips = ["127.0.0.1", "0.0.0.0"]
+    for ip in common_ips:
+        if ip not in ips:
+            ips.append(ip)
+    
+    return ips
 
 
 def generate_self_signed_cert(cert_path: str, key_path: str, 
@@ -52,6 +74,24 @@ def generate_self_signed_cert(cert_path: str, key_path: str,
             x509.NameAttribute(NameOID.COMMON_NAME, common_name),
         ])
         
+        # Build Subject Alternative Name list
+        san_list = [
+            x509.DNSName("localhost"),
+            x509.DNSName("*.local"),
+            x509.DNSName("raspberrypi"),
+            x509.DNSName("raspberrypi.local"),
+            x509.DNSName("focusd"),
+            x509.DNSName("focusd.local"),
+        ]
+        
+        # Add IP addresses
+        local_ips = get_local_ip_addresses()
+        for ip_str in local_ips:
+            try:
+                san_list.append(x509.IPAddress(ipaddress.IPv4Address(ip_str)))
+            except Exception as e:
+                logger.warning(f"Failed to add IP {ip_str} to certificate: {e}")
+        
         cert = x509.CertificateBuilder().subject_name(
             subject
         ).issuer_name(
@@ -65,12 +105,7 @@ def generate_self_signed_cert(cert_path: str, key_path: str,
         ).not_valid_after(
             datetime.utcnow() + timedelta(days=validity_days)
         ).add_extension(
-            x509.SubjectAlternativeName([
-                x509.DNSName("localhost"),
-                x509.DNSName("*.local"),
-                x509.IPAddress(ipaddress.IPv4Address("127.0.0.1")),
-                x509.IPAddress(ipaddress.IPv4Address("0.0.0.0")),
-            ]),
+            x509.SubjectAlternativeName(san_list),
             critical=False,
         ).sign(private_key, hashes.SHA256())
         

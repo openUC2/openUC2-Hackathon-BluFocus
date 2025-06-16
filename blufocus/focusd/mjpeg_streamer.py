@@ -2,7 +2,7 @@
 MJPEG Streaming for focusd
 
 Provides MJPEG video streaming for debugging as specified:
-- Exposes MJPEG stream of raw frames on http://<pi>:8080/stream.mjpg
+- Exposes MJPEG stream of raw frames over HTTPS to avoid mixed content issues
 """
 
 import logging

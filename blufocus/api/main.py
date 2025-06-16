@@ -7,7 +7,7 @@ Implements the REST API specification from section 7:
 - POST /config - update config; body = partial YAML  
 - POST /capture - grab single frame, return JPEG
 - GET /focus - latest focus value JSON
-- GET /stream - stream mjpeg data
+- GET /stream - stream mjpeg data over HTTPS to avoid mixed content issues
 """
 
 import logging
@@ -163,7 +163,7 @@ class FocusdAPI:
         
         @self.app.get("/stream")
         async def get_mjpeg_stream():
-            """Stream MJPEG video data"""
+            """Stream MJPEG video data over HTTPS to avoid mixed content issues"""
             try:
                 self.mjpeg_streamer.add_client()
                 
@@ -190,6 +190,7 @@ class FocusdAPI:
                 "service": "focusd",
                 "version": "1.0.0",
                 "description": "Autofocus System for Raspberry Pi Zero W2",
+                "note": "HTTPS is enabled by default for secure communication and to avoid mixed content issues",
                 "endpoints": {
                     "status": "/status",
                     "config": "/config",
