@@ -1,0 +1,11 @@
+[Unit]
+Description=Setup CAN0 interface for focusd
+Before=focusd.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/focusd/scripts/setup-can.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

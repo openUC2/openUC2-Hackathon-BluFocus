@@ -1,0 +1,19 @@
+# Core dependencies for focusd autofocus system
+numpy>=1.21.0
+scipy>=1.7.0
+fastapi>=0.68.0
+uvicorn>=0.15.0
+pydantic>=1.8.0
+pyyaml>=5.4.0
+python-can>=4.0.0
+pillow>=8.3.0
+opencv-python>=4.5.0
+picamera2>=0.3.0
+cryptography>=3.4.0
+
+# Development and testing
+pytest>=6.2.0
+pytest-asyncio>=0.15.0
+black>=21.6.0
+flake8>=3.9.0
+mypy>=0.910
