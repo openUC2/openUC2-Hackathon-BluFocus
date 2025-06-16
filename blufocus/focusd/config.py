@@ -49,6 +49,9 @@ class APIConfig:
     port: int = 8080
     enable_docs: bool = True
     cors_enabled: bool = True
+    enable_ssl: bool = False
+    ssl_cert_path: str = "/etc/focusd/ssl/cert.pem"
+    ssl_key_path: str = "/etc/focusd/ssl/key.pem"
 
 
 @dataclass
@@ -208,5 +211,10 @@ class ConfigManager:
         # Validate API config
         if config.api.port <= 0 or config.api.port > 65535:
             errors.append("API port must be between 1 and 65535")
+        
+        # Validate SSL config if enabled
+        if config.api.enable_ssl:
+            if not config.api.ssl_cert_path or not config.api.ssl_key_path:
+                errors.append("SSL certificate and key paths must be specified when SSL is enabled")
             
         return len(errors) == 0, errors

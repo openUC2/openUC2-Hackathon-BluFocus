@@ -18,6 +18,7 @@ import sys
 import time
 import threading
 import asyncio
+import atexit
 from typing import Optional
 import uvicorn
 
@@ -25,6 +26,7 @@ from focusd.config import ConfigManager
 from focusd.camera import CameraInterface  
 from focusd.can_interface import CANInterface, setup_can_interface
 from focusd.mjpeg_streamer import MJPEGStreamer
+from focusd.ssl_utils import ensure_certificates_exist, validate_certificates
 from algorithms.focus_algorithm import FocusMetric, FocusConfig
 from api.main import FocusdAPI
 
@@ -46,14 +48,19 @@ class FocusdService:
         self.mjpeg_streamer: Optional[MJPEGStreamer] = None
         self.focus_metric: Optional[FocusMetric] = None
         self.api: Optional[FocusdAPI] = None
+        self.uvicorn_server: Optional[uvicorn.Server] = None
         
         self.is_running = False
         self._shutdown_event = threading.Event()
+        self._shutdown_requested = False
         
         # Performance tracking
         self.frame_count = 0
         self.start_time = time.time()
         self.last_performance_log = time.time()
+        
+        # Register cleanup on exit
+        atexit.register(self.stop)
         
     def _setup_logging(self):
         """Setup logging configuration"""
@@ -194,6 +201,13 @@ class FocusdService:
         try:
             self.api = FocusdAPI(self.config_manager, self.mjpeg_streamer)
             self.logger.info("FastAPI initialized")
+            
+            # Setup SSL certificates if enabled
+            if self.config.api.enable_ssl:
+                if not self._setup_ssl_certificates():
+                    self.logger.warning("SSL setup failed, falling back to HTTP")
+                    self.config.api.enable_ssl = False
+            
             return True
             
         except Exception as e:
@@ -251,24 +265,57 @@ class FocusdService:
         self.frame_count = 0
         self.start_time = time.time()
     
+    def _setup_ssl_certificates(self) -> bool:
+        """Setup SSL certificates for HTTPS"""
+        try:
+            cert_path = self.config.api.ssl_cert_path
+            key_path = self.config.api.ssl_key_path
+            
+            # Validate existing certificates or generate new ones
+            if not validate_certificates(cert_path, key_path):
+                self.logger.info("Generating self-signed SSL certificates...")
+                if not ensure_certificates_exist(cert_path, key_path):
+                    self.logger.error("Failed to generate SSL certificates")
+                    return False
+            
+            self.logger.info(f"SSL certificates ready: {cert_path}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"SSL certificate setup failed: {e}")
+            return False
+    
     def run(self):
         """Run the service with FastAPI server"""
         if not self.start():
             sys.exit(1)
         
         try:
-            # Run FastAPI server in the main thread
+            # Configure uvicorn server
             config = self.config_manager.get_config()
-            uvicorn.run(
+            uvicorn_config = uvicorn.Config(
                 self.api.app,
                 host=config.api.host,
                 port=config.api.port,
                 log_level="info",
-                access_log=True
+                access_log=True,
+                ssl_keyfile=config.api.ssl_key_path if config.api.enable_ssl else None,
+                ssl_certfile=config.api.ssl_cert_path if config.api.enable_ssl else None,
+                reload=False,
+                workers=1
             )
             
+            # Create and run uvicorn server
+            self.uvicorn_server = uvicorn.Server(uvicorn_config)
+            
+            protocol = "HTTPS" if config.api.enable_ssl else "HTTP"
+            self.logger.info(f"Starting {protocol} server on {config.api.host}:{config.api.port}")
+            
+            # Run the server (this blocks until shutdown)
+            self.uvicorn_server.run()
+            
         except KeyboardInterrupt:
-            self.logger.info("Received keyboard interrupt")
+            self.logger.info("Received keyboard interrupt (Ctrl+C)")
         except Exception as e:
             self.logger.error(f"Service error: {e}")
         finally:
@@ -276,29 +323,63 @@ class FocusdService:
     
     def stop(self):
         """Stop all components"""
+        if self._shutdown_requested:
+            return
+            
+        self._shutdown_requested = True
         self.logger.info("Stopping focusd service...")
         self.is_running = False
         
+        # Signal shutdown event
+        self._shutdown_event.set()
+        
+        # Stop uvicorn server
+        if self.uvicorn_server:
+            try:
+                self.uvicorn_server.should_exit = True
+                self.logger.info("Signaled uvicorn server to stop")
+            except Exception as e:
+                self.logger.warning(f"Error stopping uvicorn server: {e}")
+        
         # Stop components in reverse order
-        if self.api:
-            # FastAPI stops when main thread exits
-            pass
-            
         if self.mjpeg_streamer:
-            self.mjpeg_streamer.stop()
+            try:
+                self.mjpeg_streamer.stop()
+                self.logger.info("MJPEG streamer stopped")
+            except Exception as e:
+                self.logger.warning(f"Error stopping MJPEG streamer: {e}")
             
         if self.camera:
-            self.camera.stop()
+            try:
+                self.camera.stop()
+                self.logger.info("Camera stopped")
+            except Exception as e:
+                self.logger.warning(f"Error stopping camera: {e}")
             
         if self.can_interface:
-            self.can_interface.stop()
-            
+            try:
+                self.can_interface.stop()
+                self.logger.info("CAN interface stopped")
+            except Exception as e:
+                self.logger.warning(f"Error stopping CAN interface: {e}")
+        
         self.logger.info("focusd service stopped")
     
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals"""
-        self.logger.info(f"Received signal {signum}, shutting down...")
+        signal_names = {signal.SIGTERM: "SIGTERM", signal.SIGINT: "SIGINT"}
+        signal_name = signal_names.get(signum, f"signal {signum}")
+        
+        self.logger.info(f"Received {signal_name}, initiating graceful shutdown...")
+        
+        # Stop the service gracefully
         self.stop()
+        
+        # Give components time to shut down
+        time.sleep(1)
+        
+        # Exit the process
+        self.logger.info("Exiting...")
         sys.exit(0)
 
 

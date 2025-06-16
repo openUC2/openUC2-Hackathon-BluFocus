@@ -9,6 +9,7 @@ python-can>=4.0.0
 pillow>=8.3.0
 opencv-python>=4.5.0
 picamera2>=0.3.0
+cryptography>=3.4.0
 
 # Development and testing
 pytest>=6.2.0
