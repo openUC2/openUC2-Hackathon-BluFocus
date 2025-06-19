@@ -11,14 +11,6 @@ Based on the specification in section 5:
 7. Return timestamped JSON {"t": timestamp, "focus": F}
 """
 
-import time
-import numpy as np
-from typing import Dict, Any, Optional
-from dataclasses import dataclass
-from scipy.optimize import curve_fit
-from scipy.ndimage import gaussian_filter
-
-
 @dataclass
 class FocusConfig:
     """Configuration for focus metric computation"""
@@ -96,6 +88,43 @@ class FocusMetric:
         im[im < self.config.background_threshold] = 0
         
         return im
+        
+    def preprocess_frame_rainer(self, frame: np.ndarray) -> np.ndarray:        
+        if len(frame.shape) == 3:
+            # Convert RGB to grayscale by averaging channels
+            im = np.mean(frame, axis=-1).astype(np.uint8)
+        else:
+            im = frame.astype(np.uint8)
+            
+        # Convert to float for processing
+        im = im.astype(float)            
+        sum(nip.abs2(nip.rr2(ez) * np.max(0, intensityarray - maximum(intensityarray)/10)))
+        # Find maximum intensity location for cropping
+        if self.config.crop_radius > 0:
+            # Apply heavy Gaussian blur to find general maximum location
+            im_gauss = gaussian_filter(im, sigma=111)
+            max_coord = np.unravel_index(np.argmax(im_gauss), im_gauss.shape)
+            
+            # Crop around maximum with specified radius
+            h, w = im.shape
+            y_min = max(0, max_coord[0] - self.config.crop_radius)
+            y_max = min(h, max_coord[0] + self.config.crop_radius)
+            x_min = max(0, max_coord[1] - self.config.crop_radius)
+            x_max = min(w, max_coord[1] + self.config.crop_radius)
+            
+            im = im[y_min:y_max, x_min:x_max]
+        
+        # Step 2: Optional Gaussian blur to suppress noise
+        if self.config.enable_gaussian_blur:
+            im = gaussian_filter(im, sigma=self.config.gaussian_sigma)
+            
+        # Apply mean subtraction (from original code)
+        im = im - np.mean(im) / 2
+        
+        # Step 3: Threshold background
+        im[im < self.config.background_threshold] = 0
+        
+        return im
     
     def compute_projections(self, im: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """
@@ -112,7 +141,7 @@ class FocusMetric:
         
         return projX, projY
     
-    def fit_projections(self, projX: np.ndarray, projY: np.ndarray) -> tuple[float, float]:
+    def fit_projections(self, projX: np.ndarray, projY: np.ndarray, isDoubleGaussX = False) -> tuple[float, float]:
         """
         Steps 5-6: Fit projections and compute focus value
         
@@ -131,7 +160,10 @@ class FocusMetric:
         i0_x = np.mean(projX)
         amp_x = np.max(projX) - i0_x
         sigma_x_init = np.std(projX)
-        init_guess_x = [i0_x, w1/2, sigma_x_init, amp_x, 100]
+        if isDoubleGaussX:
+            init_guess_x = [i0_x, w1/2, sigma_x_init, amp_x, 100]
+        else:
+            init_guess_x = [i0_x, w1/2, sigma_x_init, amp_x]
         
         # Initial guess parameters for Y fit (single Gaussian)
         i0_y = np.mean(projY)
@@ -141,10 +173,15 @@ class FocusMetric:
         
         try:
             # Fit X projection with double Gaussian
-            popt_x, _ = curve_fit(self.double_gaussian_1d, x, projX, 
-                                 p0=init_guess_x, maxfev=50000)
-            sigma_x = abs(popt_x[2])  # Ensure positive sigma
-            
+            if isDoubleGaussX:
+                popt_x, _ = curve_fit(self.double_gaussian_1d, x, projX, 
+                                    p0=init_guess_x, maxfev=50000)
+                sigma_x = abs(popt_x[2])  # Ensure positive sigma
+            else:
+                popt_x, _ = curve_fit(self.gaussian_1d, x, projX,
+                                     p0=init_guess_x, maxfev=50000)
+                sigma_x = abs(popt_x[2])  # Ensure positive sigma
+                
             # Fit Y projection with single Gaussian  
             popt_y, _ = curve_fit(self.gaussian_1d, y, projY,
                                  p0=init_guess_y, maxfev=50000)
@@ -202,3 +239,4 @@ class FocusMetric:
                 setattr(self.config, key, value)
             else:
                 raise ValueError(f"Unknown configuration parameter: {key}")
+
