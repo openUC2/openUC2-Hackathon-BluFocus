@@ -1,0 +1,27 @@
+[Unit]
+Description=focusd - Autofocus System Service
+After=network.target can0-setup.service
+Wants=can0-setup.service
+
+[Service]
+Type=simple
+User=focusd
+Group=focusd
+WorkingDirectory=/opt/focusd
+Environment=PYTHONPATH=/opt/focusd
+ExecStart=/usr/bin/python3 -m focusd.main --config /etc/focusd/config.yaml
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+PIDFile=/var/run/focusd.pid
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/etc/focusd /var/log /var/run
+
+[Install]
+WantedBy=multi-user.target
